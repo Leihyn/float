@@ -1,0 +1,51 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules/
+dist/
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment and secrets
+.env
+.env.local
+.env.testnet
+emulator-account.pkey
+testnet-account.pkey
+
+# Flow
+imports
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Video
+video/out/
+video/public/*-raw.mov
+video/scripts/generate-voiceover.py
+
+# AI agent configs
+.agents/
+.claude/
+.qwen/
+skills-lock.json
+.cursorignore

@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  /* Surface palette — zinc scale */
+  --float-bg: #09090b;
+  --float-surface: #18181b;
+  --float-elevated: #27272a;
+  --float-border: #3f3f46;
+  --float-border-subtle: rgba(63, 63, 70, 0.5);
+
+  /* Accent */
+  --float-emerald: #10b981;
+  --float-emerald-dim: rgba(16, 185, 129, 0.12);
+
+  /* Semantic */
+  --float-red: #ef4444;
+  --float-amber: #f59e0b;
+  --float-text: #fafafa;
+  --float-text-secondary: #a1a1aa;
+  --float-text-muted: #71717a;
+
+  /* Spacing */
+  --space-unit: 4px;
+
+  /* Radius — ONE value, used everywhere */
+  --radius: 16px;
+  --radius-sm: 12px;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  background-color: var(--float-bg);
+  color: var(--float-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+/* Tabular numbers for financial data */
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* Slide-up for modals / expanding sections */
+@keyframes slide-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up var(--duration-normal) var(--ease-out-expo);
+}
+
+/* Fade-in */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-normal) var(--ease-out-expo);
+}
+
+/* Yield tick — subtle brightness pulse for the yield dot */
+@keyframes yield-tick {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-yield-tick {
+  animation: yield-tick 3s ease-in-out infinite;
+}
+
+/* Number bump — when yield value changes */
+@keyframes number-bump {
+  0% { transform: translateY(4px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.animate-number-bump {
+  animation: number-bump 300ms var(--ease-out-expo);
+}
+
+/* Spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--float-elevated) 0%, #3f3f46 50%, var(--float-elevated) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
