@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import * as fcl from '@onflow/fcl'
 import './config/flow' // ensure FCL is initialized
 import { getEvmAddress, disconnectWallet } from './lib/transactions'
+import { getStoredPasskey } from './lib/passkey'
 import { Home } from './components/Home'
 import { Onboarding } from './components/Onboarding'
 import { AccountSetup } from './components/AccountSetup'
@@ -21,9 +22,24 @@ function App() {
   const [needsSetup, setNeedsSetup] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Restore FCL wallet session on mount (Blocto persists sessions)
+  // Restore session on mount: check passkey first, then FCL wallet
   useEffect(() => {
     async function restore() {
+      // 1. Check for stored passkey session
+      const passkey = getStoredPasskey()
+      if (passkey) {
+        const evmAddr = await getEvmAddress(passkey.flowAddress)
+        setAuth({
+          flowAddress: passkey.flowAddress,
+          evmAddress: evmAddr,
+          loggedIn: true,
+        })
+        if (!evmAddr) setNeedsSetup(true)
+        setLoading(false)
+        return
+      }
+
+      // 2. Fall back to FCL wallet session (Blocto persists sessions)
       const user = await fcl.currentUser.snapshot()
       if (user?.addr) {
         const evmAddr = await getEvmAddress(user.addr)

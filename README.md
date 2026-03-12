@@ -27,21 +27,7 @@ Float uses every Flow-native feature that makes consumer DeFi possible:
 
 ## Architecture
 
-```
-User (passkey) --> React Frontend --> FCL --> Flow Account (P256 key)
-                                                   |
-                            .----------------------'
-                            v
-                 Flow EVM Contracts (Solidity)
-                 |-- FloatVault.sol -- deposits, yield tracking, lending
-                 '-- BattlePool.sol -- prediction battles, wagering, payouts
-                            |
-                            ^
-                 Cadence Handlers (scheduled)
-                 |-- YieldCompounder -- daily auto-compound
-                 |-- BattleResolver -- reads Band Oracle, resolves crypto battles
-                 '-- BattleCreator -- creates tomorrow's battle automatically
-```
+![Float Architecture](public/architecture.svg)
 
 **Frontend reads** from EVM via viem (public client).
 **Frontend writes** go through Cadence -> COA -> EVM (FCL.mutate).

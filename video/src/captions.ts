@@ -38,7 +38,7 @@ export const CAPTIONS = [
   { text: "Step four: win or lose. Only yield at stake. Principal stays safe.", start: 1440, end: 1555 },
 
   // DEMO FLOW (1560-2310)
-  { text: "Connect your wallet with one tap.", start: 1575, end: 1650 },
+  { text: "Create an account with Face ID. No wallet needed.", start: 1575, end: 1660 },
   { text: "Your dashboard shows deposits, yield, and active battles.", start: 1760, end: 1870 },
   { text: "Pick a side. Wager your yield.", start: 1960, end: 2040 },
   { text: "Battle resolves. Claim your winnings.", start: 2190, end: 2300 },

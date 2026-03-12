@@ -14,7 +14,7 @@ import { INTER, MONO } from "../fonts";
  * Demo Flow — 25s (750 frames)
  * Uses actual screen recordings in a browser-frame mockup.
  *
- * Phase 1: Connect Wallet   (0–190)   ~6.3s   connect.mp4 trimmed
+ * Phase 1: Passkey Login     (0–190)   ~6.3s   passkey.mp4 trimmed
  * Phase 2: Dashboard         (190–380) ~6.3s   dashboard.mp4
  * Phase 3: Battle Wager      (380–620) ~8s     battle.mp4 trimmed
  * Phase 4: Claim Winnings    (620–750) ~4.3s   claim.mp4
@@ -141,12 +141,12 @@ export const DemoFlow: React.FC = () => {
       {/* Phase 1: Connect Wallet */}
       {frame < 200 && (
         <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <PhaseLabel text="Step 1: Connect Wallet" frame={frame} />
+          <PhaseLabel text="Step 1: Passkey Login" frame={frame} />
           <div style={{ marginTop: 70 }}>
             <BrowserFrame opacity={p1Op} scale={p1Scale}>
               <OffthreadVideo
-                src={staticFile("connect.mp4")}
-                startFrom={60}
+                src={staticFile("passkey.mp4")}
+                startFrom={90}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 volume={0}
               />

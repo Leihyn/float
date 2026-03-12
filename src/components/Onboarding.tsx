@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import * as fcl from '@onflow/fcl'
+import { createPasskeyAccount } from '../lib/passkey'
 
 interface OnboardingProps {
   onAuthenticated: (flowAddress: string) => void
@@ -8,35 +9,51 @@ interface OnboardingProps {
 export function Onboarding({ onAuthenticated }: OnboardingProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<'idle' | 'passkey' | 'wallet'>('idle')
 
-  const handleConnect = async () => {
+  const handlePasskey = async () => {
     setLoading(true)
+    setMode('passkey')
     setError(null)
     try {
-      // fcl.authenticate opens Discovery wallet popup
-      // User picks Blocto/Lilico, signs in, popup returns address
+      const result = await createPasskeyAccount()
+      onAuthenticated(result.flowAddress)
+    } catch (err: any) {
+      const msg = err?.message || 'Passkey creation failed'
+      if (msg.includes('cancelled') || msg.includes('NotAllowed')) {
+        setError('Passkey cancelled. Try again or use Flow Wallet.')
+      } else {
+        setError(msg)
+      }
+    } finally {
+      setLoading(false)
+      setMode('idle')
+    }
+  }
+
+  const handleWallet = async () => {
+    setLoading(true)
+    setMode('wallet')
+    setError(null)
+    try {
       await fcl.authenticate()
       const user = await fcl.currentUser.snapshot()
       if (!user?.addr) {
-        setError('Connection closed. Click "Connect Wallet" and complete sign-in in the popup.')
+        setError('Connection closed. Try again.')
         return
       }
       onAuthenticated(user.addr)
     } catch (err: any) {
-      const msg = err?.message || ''
-      if (msg.includes('cancelled') || msg.includes('closed')) {
-        setError('Popup closed. Allow popups for this site and try again.')
-      } else {
-        setError(msg || 'Connection failed. Try again.')
-      }
+      setError(err?.message || 'Connection failed.')
     } finally {
       setLoading(false)
+      setMode('idle')
     }
   }
 
   return (
     <div className="flex flex-col items-center pt-16 animate-fade-in">
-      {/* Logo mark */}
+      {/* Logo */}
       <div className="mb-12 flex h-14 w-14 items-center justify-center">
         <img src="/logo.jpg" alt="" className="h-14 w-auto" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
       </div>
@@ -54,9 +71,7 @@ export function Onboarding({ onAuthenticated }: OnboardingProps) {
       </p>
 
       {/* Stats strip */}
-      <div
-        className="mb-10 flex w-full max-w-xs items-center justify-between border-y border-[var(--float-border-subtle)] py-5"
-      >
+      <div className="mb-10 flex w-full max-w-xs items-center justify-between border-y border-[var(--float-border-subtle)] py-5">
         <StatItem label="Vault APY" value="4.1%" />
         <div className="h-8 w-px bg-[var(--float-border-subtle)]" />
         <StatItem label="Principal risk" value="$0" />
@@ -64,9 +79,9 @@ export function Onboarding({ onAuthenticated }: OnboardingProps) {
         <StatItem label="Min deposit" value="$1" />
       </div>
 
-      {/* CTA */}
+      {/* Primary CTA: Passkey */}
       <button
-        onClick={handleConnect}
+        onClick={handlePasskey}
         disabled={loading}
         className="w-full max-w-xs py-4 text-[15px] font-semibold text-white transition-opacity duration-150 hover:opacity-90 active:translate-y-px disabled:opacity-40"
         style={{
@@ -74,19 +89,53 @@ export function Onboarding({ onAuthenticated }: OnboardingProps) {
           backgroundColor: 'var(--float-emerald)',
         }}
       >
-        {loading ? (
+        {loading && mode === 'passkey' ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="inline-block h-4 w-4 animate-spinner rounded-full border-2 border-white/30 border-t-white" />
+            Creating account...
+          </span>
+        ) : (
+          <span className="flex items-center justify-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 10v4M7 15.5a5 5 0 0 1 10 0" />
+              <rect x="5" y="15" width="14" height="7" rx="2" />
+              <circle cx="12" cy="8" r="3" />
+            </svg>
+            Get Started with Passkey
+          </span>
+        )}
+      </button>
+
+      <p className="mt-3 text-[12px] text-[var(--float-text-muted)]">
+        Face ID or fingerprint. No wallet needed.
+      </p>
+
+      {/* Divider */}
+      <div className="my-6 flex w-full max-w-xs items-center gap-3">
+        <div className="h-px flex-1 bg-[var(--float-border-subtle)]" />
+        <span className="text-[11px] text-[var(--float-text-muted)]">or</span>
+        <div className="h-px flex-1 bg-[var(--float-border-subtle)]" />
+      </div>
+
+      {/* Secondary CTA: Wallet */}
+      <button
+        onClick={handleWallet}
+        disabled={loading}
+        className="w-full max-w-xs py-3.5 text-[14px] font-semibold text-[var(--float-text-secondary)] transition-opacity duration-150 hover:opacity-70 active:translate-y-px disabled:opacity-40"
+        style={{
+          borderRadius: 'var(--radius)',
+          border: '1px solid var(--float-border)',
+        }}
+      >
+        {loading && mode === 'wallet' ? (
           <span className="flex items-center justify-center gap-2">
             <span className="inline-block h-4 w-4 animate-spinner rounded-full border-2 border-white/30 border-t-white" />
             Connecting...
           </span>
         ) : (
-          'Connect Wallet'
+          'Connect Flow Wallet'
         )}
       </button>
-
-      <p className="mt-4 text-[13px] text-[var(--float-text-muted)]">
-        Connect with Flow Wallet to get started
-      </p>
 
       {error && (
         <div

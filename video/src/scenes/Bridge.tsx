@@ -27,7 +27,7 @@ export const Bridge: React.FC = () => {
     {
       track: "CONSUMER DEFI",
       text: "One-tap deposit into yield-bearing vaults.",
-      accent: "One-tap login via Flow Wallet.",
+      accent: "Passkey login. No wallet needed.",
     },
     {
       track: "GAMIFIED YIELD",

@@ -3,46 +3,38 @@
  *
  * All writes go through Cadence → COA → EVM.
  * Frontend never signs EVM transactions directly.
- * Each transaction borrows the user's COA and calls Solidity contracts.
  *
- * Passkey handles login. FCL Discovery wallet (Blocto) handles tx signing.
+ * Supports two auth modes:
+ * 1. Passkey (FLIP-264): signs locally with WebAuthn, zero popups
+ * 2. Flow Wallet (Blocto): FCL Discovery wallet as fallback
  */
 import * as fcl from '@onflow/fcl'
 import { CONTRACTS, NETWORK } from '../config/flow'
+import { getStoredPasskey } from './passkey'
+import { passkeyAuthz } from './fcl-passkey'
 
 /**
- * Ensure FCL wallet is connected for signing.
- * If not authenticated with FCL yet, triggers Discovery popup (Blocto).
- * Returns the connected wallet's Flow address.
- */
-export async function ensureWalletConnected(): Promise<string> {
-  const user = await fcl.currentUser.snapshot()
-  if (user?.addr) return user.addr
-  await fcl.authenticate()
-  const updated = await fcl.currentUser.snapshot()
-  if (!updated?.addr) throw new Error('Wallet connection cancelled')
-  return updated.addr
-}
-
-/**
- * Disconnect the FCL wallet (Blocto/Lilico).
+ * Disconnect wallet / clear passkey.
  */
 export function disconnectWallet(): void {
   fcl.unauthenticate()
+  localStorage.removeItem('float_passkey')
 }
 
 /**
- * Get FCL authorization for the connected wallet.
- * Used as proposer/payer/authorizations for all transactions.
+ * Get authorization function.
+ * Uses passkey if available, otherwise FCL wallet.
  */
-function walletAuthz() {
+function walletAuthz(): any {
+  const stored = getStoredPasskey()
+  if (stored) return passkeyAuthz
   return fcl.currentUser.authorization
 }
 
 // --- Account Setup (one-time after passkey creation) ---
 
 export async function setupAccount(): Promise<string> {
-  await ensureWalletConnected()
+
   const txId = await fcl.mutate({
     cadence: `
       import EVM from 0xEVM
@@ -75,9 +67,9 @@ export async function setupAccount(): Promise<string> {
             from: /storage/flowTokenVault
           ) ?? panic("No FLOW vault")
 
-          let coa = signer.storage.borrow<auth(EVM.Call, EVM.Deposit) &EVM.CadenceOwnedAccount>(from: /storage/evm)!
+          let coa = signer.storage.borrow<auth(EVM.Call, EVM.Owner) &EVM.CadenceOwnedAccount>(from: /storage/evm)!
 
-          let flowTokens <- flowVault.withdraw(amount: 1.0) as! @FlowToken.Vault
+          let flowTokens <- flowVault.withdraw(amount: 0.0005) as! @FlowToken.Vault
           coa.deposit(from: <-flowTokens)
 
           let usdc = EVM.addressFromString(usdcAddr)
@@ -187,7 +179,7 @@ export async function fundAccountWithFlow(flowAddress: string): Promise<boolean>
 // --- Deposit USDC ---
 
 export async function depositUSDC(amount: string): Promise<string> {
-  await ensureWalletConnected()
+
   const amountWei = BigInt(Math.floor(parseFloat(amount) * 1e6)).toString()
 
   const txId = await fcl.mutate({
@@ -290,7 +282,7 @@ export async function enterBattle(
   side: 'yes' | 'no',
   amount: string,
 ): Promise<string> {
-  await ensureWalletConnected()
+
   const amountWei = BigInt(Math.floor(parseFloat(amount) * 1e6)).toString()
   const sideNum = side === 'yes' ? '0' : '1'
 
@@ -343,7 +335,7 @@ export async function enterBattle(
 // --- Claim Battle Winnings ---
 
 export async function claimBattle(battleId: string): Promise<string> {
-  await ensureWalletConnected()
+
   const txId = await fcl.mutate({
     cadence: `
       import EVM from 0xEVM
@@ -391,7 +383,7 @@ export async function claimBattle(battleId: string): Promise<string> {
 // --- Withdraw Principal ---
 
 export async function withdrawPrincipal(amount: string): Promise<string> {
-  await ensureWalletConnected()
+
   const amountWei = BigInt(Math.floor(parseFloat(amount) * 1e6)).toString()
 
   const txId = await fcl.mutate({

@@ -182,7 +182,7 @@ export const Architecture: React.FC = () => {
         {[
           "Scheduled Transactions (auto-compound)",
           "Gas Sponsorship (free for users)",
-          "Flow Wallet Auth (one-tap login)",
+          "Passkey Auth (Face ID / fingerprint)",
         ].map((feat, i) => {
           const fProg = spring({ frame: frame - (240 + i * 20), fps, config: { damping: 18, stiffness: 155 } });
           const fOp = interpolate(fProg, [0, 0.35], [0, 1], { extrapolateRight: "clamp" });
