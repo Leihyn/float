@@ -246,13 +246,196 @@ You have yield locked in active battles. If you withdraw principal, your remaini
 
 Verify the handler is registered with FlowTransactionScheduler and the execution effort budget is set to at least 5000. Check that the COA exists at `/storage/evm` on the deployer account.
 
+## Passkey Authentication
+
+Traditional DeFi onboarding requires users to install a wallet extension, write down a seed phrase, and fund an account with gas tokens. Float eliminates all of this with passkey-based walletless onboarding.
+
+### How it works
+
+The system uses two separate keys with distinct responsibilities:
+
+1. **WebAuthn credential (UX layer)** -- Triggers Face ID or fingerprint for familiar "passkey saved" experience. Created via `navigator.credentials.create()` with P-256 curve. This credential is only used for the biometric prompt.
+
+2. **Web Crypto P256 signing key (transaction layer)** -- Generated via `crypto.subtle.generateKey()`. This key produces standard ECDSA_P256 signatures that Flow verifies natively. The private key is exported as JWK and stored in localStorage.
+
+**Why two keys?** WebAuthn signatures wrap the challenge in `authenticatorData || SHA256(clientDataJSON)`. Flow's signature verification expects a standard ECDSA signature over the raw transaction message. WebAuthn cannot produce this. So we use WebAuthn for the biometric UX and a separate Web Crypto key for actual signing.
+
+### Account creation flow
+
+```
+User taps "Get Started with Passkey"
+  |
+  v
+1. navigator.credentials.create() --> Face ID / fingerprint prompt
+   (creates WebAuthn credential, user sees "Passkey saved")
+  |
+  v
+2. crypto.subtle.generateKey('P-256') --> P256 keypair
+   (private key exported as JWK, stored in localStorage)
+  |
+  v
+3. POST hardware-wallet-api-testnet.staging.onflow.org/accounts
+   body: { publicKey: hex(x||y), signatureAlgorithm: ECDSA_P256, hashAlgorithm: SHA2_256 }
+   --> returns Flow address (e.g. 0xe0007473789b91c2)
+  |
+  v
+4. Deployer sends 10 FLOW to new account
+   (faucet has CORS issues from browser, so deployer funds directly)
+  |
+  v
+5. setupAccount() transaction:
+   - Creates CadenceOwnedAccount (COA) at /storage/evm
+   - Funds COA with 0.0005 FLOW for EVM gas
+   - Mints 10,000 mock USDC to COA
+   - Deposits 1,000 USDC into FloatVault
+   - Simulates 50 USDC yield (testnet only)
+```
+
+### Transaction signing
+
+Every FCL transaction goes through `walletAuthz()`, which checks for a stored passkey:
+
+```typescript
+function walletAuthz(): any {
+  const stored = getStoredPasskey()
+  if (stored) return passkeyAuthz   // sign locally with Web Crypto
+  return fcl.currentUser.authorization // fall back to Blocto/Discovery
+}
+```
+
+The `passkeyAuthz` function signs the FCL signable message using the stored private key:
+
+```typescript
+signingFunction: async (signable: { message: string }) => {
+  const messageBytes = hexToBytes(signable.message)
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    privateKey,
+    messageBytes,
+  )
+  // Convert to r||s format, return hex
+}
+```
+
+Flow's access node verifies: `ECDSA_P256(SHA2_256(message))` matches the public key registered on the account. No popups, no wallet extensions, no browser redirects.
+
+### Session persistence
+
+On page reload, `App.tsx` checks localStorage for a stored passkey before falling back to FCL:
+
+```typescript
+const passkey = getStoredPasskey()
+if (passkey) {
+  // Restore session from passkey -- no network call needed
+  const evmAddr = await getEvmAddress(passkey.flowAddress)
+  setAuth({ flowAddress: passkey.flowAddress, evmAddress: evmAddr, loggedIn: true })
+  return
+}
+// Fall back to FCL wallet session
+const user = await fcl.currentUser.snapshot()
+```
+
+### Security considerations
+
+- **Private key in localStorage**: The signing key is stored as a JWK in localStorage. This is acceptable for a testnet demo but not production. A production implementation would use IndexedDB with `extractable: false` and protect access with the WebAuthn credential via the PRF extension.
+- **Deployer key in frontend**: The deployer private key is embedded in `passkey.ts` for account funding. This is testnet-only. Production would use a backend funding service or gas sponsorship.
+- **No key rotation**: If a user clears localStorage, the signing key is lost and the Flow account is unrecoverable. Production would need cloud backup or social recovery.
+
+## Frontend Components
+
+```
+App.tsx
+|-- Onboarding.tsx        # Dual auth: passkey primary, Flow Wallet fallback
+|-- AccountSetup.tsx      # One-time COA creation + initial deposit
+'-- Home.tsx              # Main dashboard
+    |-- BalanceCard.tsx   # Principal, yield, total value (reads from FloatVault via viem)
+    |-- BattleCard.tsx    # Active battle with YES/NO buttons + wager modal
+    |-- PastBattles.tsx   # Resolved battles with claim buttons
+    |-- ActivityFeed.tsx  # Recent on-chain events (deposits, withdrawals, battle entries)
+    |-- DepositModal.tsx  # Deposit USDC flow
+    '-- WithdrawModal.tsx # Withdraw principal flow
+```
+
+**Data flow:** All reads go through a viem public client pointed at the Flow EVM RPC (`https://testnet.evm.nodes.onflow.org`). Components call `publicClient.readContract()` with the deployed contract addresses and ABIs. Writes go through FCL as Cadence transactions.
+
+**Polling:** BalanceCard and BattleCard poll every 15 seconds via `useEffect` intervals. ActivityFeed fetches historical logs via `publicClient.getLogs()` filtered by the user's EVM address.
+
+## Deployment
+
+### Local development
+
+```bash
+npm install
+npm run dev          # starts Vite on localhost:5175
+```
+
+### Solidity tests
+
+```bash
+cd contracts
+forge test           # 19/19 passing
+forge test -vvv      # verbose output with traces
+```
+
+### Vercel deployment
+
+Environment variables required:
+
+```
+VITE_FLOW_NETWORK=testnet
+VITE_MOCK_USDC=0x8AEa486507fe32C4F37232262bb550EA2806c328
+VITE_FLOAT_VAULT=0xEd247477E8aa030D37eEDd1510EEBd65d3F449dA
+VITE_BATTLE_POOL=0x19FABBac46C3a330985c1833514eF96b413bCDAF
+```
+
+Build command: `tsc -b && vite build` (output: `dist/`)
+
+### Contract deployment
+
+Solidity contracts are deployed via Foundry's `forge script`:
+
+```bash
+cd contracts
+source ../.env.testnet
+forge script script/Deploy.s.sol:Deploy --rpc-url $FLOW_EVM_RPC --broadcast
+```
+
+Cadence contracts are deployed via `flow-cli`:
+
+```bash
+flow accounts add-contract YieldCompounder cadence/contracts/YieldCompounder.cdc --network testnet
+flow accounts add-contract BattleResolver cadence/contracts/BattleResolver.cdc --network testnet
+flow accounts add-contract BattleCreator cadence/contracts/BattleCreator.cdc --network testnet
+```
+
+Scheduled transactions are registered via:
+
+```bash
+flow transactions send cadence/transactions/schedule_yield_compounder.cdc --network testnet
+flow transactions send cadence/transactions/schedule_battle_resolver.cdc --network testnet
+flow transactions send cadence/transactions/schedule_battle_creator.cdc --network testnet
+```
+
+## Security Considerations
+
+**Principal isolation.** FloatVault enforces that withdrawals cannot reduce a user's yield below their locked amount. The `withdraw()` function checks: `yieldOf(user) - yieldLockedOf[user] >= 0` after the withdrawal. This prevents users from withdrawing principal to avoid battle losses.
+
+**One entry per battle.** BattlePool enforces `entries[battleId][msg.sender].amount == 0` before allowing entry. This prevents users from hedging by betting on both sides.
+
+**Auto-cancel one-sided battles.** If resolution finds that either the YES or NO pool is zero, the battle is cancelled and all yield is refunded. Without this, one-sided battles would have no losing pool to distribute and winners would only get their own wager back.
+
+**Protocol fee extraction.** The 5% fee is taken from the losing pool, not the winning pool. Winners always receive their full wager plus a share of losers. The fee never reduces a winner's return below their wager.
+
+**Mock contracts on testnet.** MockUSDC has a public `mint()` function. This is intentional for testnet -- anyone can mint. The production deployment would use real USDC, which has no public mint.
+
 ## Roadmap
 
 **V2:**
-- FLIP-264 passkey authentication -- sign up with a fingerprint, no seed phrase or wallet
 - Real Band Oracle integration for live price resolution on mainnet
 - User-created battles with creator bonds and community dispute resolution
 - Multi-outcome battles (3-way split) and range battles
 - Streaks, leaderboards, and social features
 - Gas sponsorship via Flow's three-role transaction model (users never see gas fees)
+- IndexedDB key storage with PRF extension for production passkey security
+- Social recovery for passkey accounts
 - Mainnet deployment on Flow EVM
