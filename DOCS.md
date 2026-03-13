@@ -27,6 +27,8 @@ If you lose, you lose $0.50 of yield. Your $100 deposit never moves.
 
 ## Architecture
 
+![Float Architecture](public/architecture.svg)
+
 ```
 User (passkey) --> Frontend (React + Vite) --> FCL --> Flow Account (P256 key)
                                                             |
