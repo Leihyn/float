@@ -147,7 +147,7 @@ export async function signWithPasskey(
   const signatureBuffer = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     privateKey,
-    message,
+    message as BufferSource,
   )
 
   // Web Crypto returns DER-encoded signature, convert to raw r || s

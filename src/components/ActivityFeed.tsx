@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { publicClient } from '../config/viem'
 import { CONTRACTS } from '../config/flow'
-import { floatVaultAbi, battlePoolAbi } from '../lib/abis'
+import { floatVaultAbi } from '../lib/abis'
 import { formatUnits } from 'viem'
 
 interface Activity {

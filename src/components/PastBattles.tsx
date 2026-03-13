@@ -141,7 +141,6 @@ export function PastBattles({ evmAddress }: PastBattlesProps) {
         {battles.map((b) => {
           const isCancelled = b.status === 2
           const userWon = !isCancelled && b.userSide === b.winningSide
-          const userLost = !isCancelled && b.userSide !== b.winningSide
           const sideLabel = b.userSide === 0 ? 'YES' : 'NO'
           const winnerLabel = b.winningSide === 0 ? 'YES' : 'NO'
           const amountUsd = (Number(b.userAmount) / 1e6).toFixed(2)

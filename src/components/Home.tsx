@@ -11,7 +11,7 @@ interface HomeProps {
   evmAddress: string | null
 }
 
-export function Home({ user, evmAddress }: HomeProps) {
+export function Home({ evmAddress }: HomeProps) {
   const [showDeposit, setShowDeposit] = useState(false)
   const [showWithdraw, setShowWithdraw] = useState(false)
 
