@@ -49,3 +49,4 @@ video/scripts/generate-voiceover.py
 .qwen/
 skills-lock.json
 .cursorignore
+.vercel
